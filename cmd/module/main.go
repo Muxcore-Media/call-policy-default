@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -24,6 +25,7 @@ func main() {
 	policyFile := flag.String("policy-file", "policies.yaml", "Path to policy YAML file")
 	allowAll := flag.Bool("allow-all", false, "Permit all inter-module calls (development)")
 	grpcAddr := flag.String("grpc-addr", ":9101", "Address for this module's gRPC policy server")
+	healthAddr := flag.String("health-addr", ":9102", "Address for HTTP health endpoint")
 	flag.Parse()
 
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})))
@@ -54,6 +56,21 @@ func main() {
 			slog.Error("gRPC policy server error", "error", err)
 		}
 	}()
+	// Start HTTP health server.
+	healthLis, err := net.Listen("tcp", *healthAddr)
+	if err != nil {
+		slog.Warn("health listen failed", "addr", *healthAddr, "error", err)
+	} else {
+		go func() {
+			mux := http.NewServeMux()
+			mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte(`{"status":"ok"}`))
+			})
+			slog.Info("HTTP health endpoint listening", "addr", *healthAddr)
+			http.Serve(healthLis, mux)
+		}()
+	}
 
 	// Connect to core's mesh.
 	conn, err := grpc.NewClient(*meshAddr,
