@@ -1,0 +1,29 @@
+# call-policy-default — inter-module call policy
+#
+# Rules are evaluated in order. The first matching rule decides.
+# Wildcard "*" matches any caller, target, or method.
+
+# Allow downloader to read/write storage
+- caller: "downloader-qbittorrent"
+  target: "storage-local"
+  methods: ["Put", "Get", "Stat", "Delete"]
+
+# Allow transcoder to read and stream from storage
+- caller: "transcoder-ffmpeg"
+  target: "storage-local"
+  methods: ["Get", "Stream", "Stat"]
+
+# Allow media managers to query each other
+- caller: "media-movies"
+  target: "media-tv"
+  methods: ["Search", "Lookup"]
+
+# Allow any module to check auth status
+- caller: "*"
+  target: "auth-local"
+  methods: ["Validate"]
+
+# Catch-all for development: allow everything
+# - caller: "*"
+#   target: "*"
+#   methods: ["*"]

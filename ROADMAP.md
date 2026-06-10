@@ -4,24 +4,26 @@
 
 ## Phases
 
-### Phase 1: Static Allow-List (minimum viable)
+### Phase 1: Static Allow-List (minimum viable) ✅
 - [x] Project scaffold (this repo)
-- [ ] `go mod init` with core dependency
-- [ ] YAML policy file parser
-- [ ] `CallPolicyProvider` implementation (static allow-list by caller/target/method)
-- [ ] Sidecar entry point (`cmd/module/main.go`)
-- [ ] SIGHUP hot-reload for policy file
-- [ ] Unit tests for policy matching (30+ test cases)
-- [ ] Integration test with a running muxcored
-- [ ] `--allow-all` flag
-- [ ] GitHub CI (build + lint + test)
+- [x] `go mod init` with core dependency
+- [x] YAML policy file parser (`internal/policy`)
+- [x] `CallPolicyProvider` implementation (static allow-list by caller/target/method)
+- [x] gRPC `PolicyService` server for core queries (`internal/server`)
+- [x] Core proto additions: `proto/muxcore/policy/v1/policy.proto` + adapter
+- [x] Sidecar entry point (`cmd/module/main.go`)
+- [x] SIGHUP hot-reload for policy file
+- [x] Unit tests for policy matching (25+ test cases)
+- [x] Unit tests for gRPC server (5 test cases)
+- [x] `--allow-all` flag
+- [x] Sample `policies.yaml`
 
 ### Phase 2: Operational
 - [ ] Audit logging of denied calls
 - [ ] Prometheus metrics (allowed/denied counters)
 - [ ] Health endpoint (gRPC health check)
-- [ ] Module restart policy support
-- [ ] Published events for policy changes
+- [ ] Integration test with running muxcored
+- [ ] GitHub CI (build + lint + test)
 
 ### Phase 3: Advanced
 - [ ] Dynamic policy via event bus (modules request access at runtime)
