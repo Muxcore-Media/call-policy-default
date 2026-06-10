@@ -1,0 +1,6 @@
+module: call-policy-default/.dockerignore
+*
+!cmd/module
+!internal
+!go.mod
+!go.sum
