@@ -60,8 +60,7 @@ func main() {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
-		slog.Error("failed to connect to core mesh", "addr", *meshAddr, "error", err)
-		os.Exit(1)
+		slog.Warn("core not reachable, running standalone", "addr", *meshAddr, "error", err)
 	}
 	defer conn.Close()
 	slog.Info("connected to core mesh", "addr", *meshAddr)
@@ -83,18 +82,18 @@ func main() {
 		},
 	})
 	if err != nil {
-		slog.Error("registration failed", "error", err)
-		os.Exit(1)
+		slog.Warn("registration failed, running standalone", "error", err)
 	}
-	if !resp.Accepted {
-		slog.Error("registration rejected", "reason", resp.Error)
-		os.Exit(1)
-	}
-	slog.Info("module registered with core",
+	if err == nil {
+		if !resp.Accepted {
+			slog.Warn("registration rejected, running standalone", "reason", resp.Error)
+		}
+		slog.Info("module registered with core",
 		"id", *moduleID,
 		"mesh_addr", resp.MeshAddr,
 		"node_id", resp.NodeId,
 	)
+	}
 
 	// Watch for SIGHUP to reload policy.
 	sighupCh := make(chan os.Signal, 1)
@@ -131,7 +130,7 @@ func main() {
 
 func loadPolicy(path string, allowAll bool) (*policy.Policy, error) {
 	if allowAll {
-		return policy.Parse([]byte(`- caller: "*" target: "*" methods: ["*"]`))
+		return policy.Parse([]byte("\n- caller: \"*\"\n  target: \"*\"\n  methods: [\"*\"]\n"))
 	}
 	return policy.Load(path)
 }
