@@ -2,7 +2,10 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"strings"
+	"sync/atomic"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -15,7 +18,9 @@ import (
 // PolicyServer implements the PolicyService gRPC server for call policy enforcement.
 type PolicyServer struct {
 	policyv1.UnimplementedPolicyServiceServer
-	policy *policy.Policy
+	policy      *policy.Policy
+	allowed     atomic.Int64
+	denied      atomic.Int64
 }
 
 // New creates a PolicyServer backed by the given policy.
@@ -28,7 +33,18 @@ func (s *PolicyServer) RegisterWithGRPC(srv *grpc.Server) {
 	policyv1.RegisterPolicyServiceServer(srv, s)
 }
 
-// AllowCall checks whether a caller module is permitted to call a method on a target module.
+// Metrics returns Prometheus-format metrics text.
+func (s *PolicyServer) Metrics() string {
+	var b strings.Builder
+	b.WriteString("# HELP call_policy_allowed_total Total inter-module calls allowed by policy\n")
+	b.WriteString("# TYPE call_policy_allowed_total counter\n")
+	fmt.Fprintf(&b, "call_policy_allowed_total %d\n", s.allowed.Load())
+	b.WriteString("# HELP call_policy_denied_total Total inter-module calls denied by policy\n")
+	b.WriteString("# TYPE call_policy_denied_total counter\n")
+	fmt.Fprintf(&b, "call_policy_denied_total %d\n", s.denied.Load())
+	return b.String()
+}
+
 func (s *PolicyServer) AllowCall(ctx context.Context, req *policyv1.AllowCallRequest) (*policyv1.AllowCallResponse, error) {
 	caller := req.GetCallerModuleId()
 	target := req.GetTargetModuleId()
@@ -40,6 +56,7 @@ func (s *PolicyServer) AllowCall(ctx context.Context, req *policyv1.AllowCallReq
 
 	allowed, reason := s.policy.Allow(caller, target, method)
 	if !allowed {
+		s.denied.Add(1)
 		slog.Warn("call policy: denied",
 			"caller", caller,
 			"target", target,
@@ -49,22 +66,22 @@ func (s *PolicyServer) AllowCall(ctx context.Context, req *policyv1.AllowCallReq
 		return &policyv1.AllowCallResponse{Allowed: false, Reason: reason}, nil
 	}
 
+	s.allowed.Add(1)
 	return &policyv1.AllowCallResponse{Allowed: true}, nil
 }
 
-// AllowPublish checks whether a caller module is permitted to publish events of a type.
 func (s *PolicyServer) AllowPublish(ctx context.Context, req *policyv1.AllowPublishRequest) (*policyv1.AllowPublishResponse, error) {
-	// For the call-policy module, publish policy is not implemented — delegate to
-	// the publish-policy-default module. Return denied by default.
-	caller := req.GetCallerModuleId()
-	eventType := req.GetEventType()
-
 	slog.Warn("publish policy: not implemented by call-policy-default, denying",
-		"caller", caller,
-		"event_type", eventType,
+		"caller", req.GetCallerModuleId(),
+		"event_type", req.GetEventType(),
 	)
 	return &policyv1.AllowPublishResponse{
 		Allowed: false,
 		Reason:  "publish policy is not handled by this module — deploy publish-policy-default",
 	}, nil
+}
+
+// SetPolicy replaces the policy at runtime (for testing).
+func (s *PolicyServer) SetPolicy(p *policy.Policy) {
+	s.policy = p
 }

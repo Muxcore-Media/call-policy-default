@@ -67,7 +67,11 @@ func main() {
 				w.Header().Set("Content-Type", "application/json")
 				w.Write([]byte(`{"status":"ok"}`))
 			})
-			slog.Info("HTTP health endpoint listening", "addr", *healthAddr)
+			mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "text/plain; version=0.0.4")
+				w.Write([]byte(policySrv.Metrics()))
+			})
+			slog.Info("HTTP health and metrics endpoint listening", "addr", *healthAddr)
 			http.Serve(healthLis, mux)
 		}()
 	}
