@@ -1,0 +1,9 @@
+{
+  "name": "Call Policy Default",
+  "description": "Default inter-module call access control. Provides static allow-list policy for the gRPC mesh.",
+  "version": "0.1.0",
+  "author": "MuxCore",
+  "roles": ["security"],
+  "capabilities": ["call.policy"],
+  "contracts": []
+}
