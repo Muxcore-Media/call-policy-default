@@ -1,10 +1,16 @@
-FROM golang:1.24-alpine AS builder
-WORKDIR /build
-COPY go.mod go.sum ./
+FROM golang:1.26-alpine AS builder
+COPY core/ /build/core/
+COPY call-policy-default/ /build/call-policy-default/
+WORKDIR /build/call-policy-default
 RUN go mod download
-COPY . .
-RUN CGO_ENABLED=0 go build -o /build/call-policy-default ./cmd/module
+RUN CGO_ENABLED=0 go build -o /call-policy-default ./cmd/module
 
-FROM gcr.io/distroless/static-debian12:nonroot
-COPY --from=builder /build/call-policy-default /
-ENTRYPOINT ["/call-policy-default"]
+FROM alpine:3.21
+RUN apk add --no-cache ca-certificates
+RUN adduser -D -h /app policy
+USER policy
+WORKDIR /app
+COPY --from=builder /call-policy-default .
+COPY call-policy-default/policies.yaml .
+EXPOSE 9300
+ENTRYPOINT ["./call-policy-default"]

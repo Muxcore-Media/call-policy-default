@@ -64,7 +64,11 @@ func (m *Module) Info() contracts.ModuleInfo {
 		Description:  "Default inter-module call access control with static allow-list policy",
 		Author:       "MuxCore",
 		Capabilities: []string{contracts.CapabilityCallPolicy},
-		HTTPAddr:     m.grpcAddr,
+		Contracts: []contracts.ContractDeclaration{
+			{Repo: "github.com/Muxcore-Media/core/pkg/contracts", Interface: "CallPolicyProvider", Version: "v0.4.0"},
+		},
+		MinCoreVersion: "0.4.0",
+		HTTPAddr:       m.grpcAddr,
 	}
 }
 

@@ -18,9 +18,9 @@ import (
 // PolicyServer implements the PolicyService gRPC server for call policy enforcement.
 type PolicyServer struct {
 	policyv1.UnimplementedPolicyServiceServer
-	policy      *policy.Policy
-	allowed     atomic.Int64
-	denied      atomic.Int64
+	policy  *policy.Policy
+	allowed atomic.Int64
+	denied  atomic.Int64
 }
 
 // New creates a PolicyServer backed by the given policy.
