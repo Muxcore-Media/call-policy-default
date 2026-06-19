@@ -44,6 +44,9 @@ func NewModule(cfg Config) *Module {
 	if cfg.FilePath == "" {
 		cfg.FilePath = "policies.yaml"
 	}
+	if v := os.Getenv("CALL_POLICY_GRPC_ADDR"); v != "" {
+		cfg.GRPCAddr = v
+	}
 	if v := os.Getenv("CALL_POLICY_FILE"); v != "" {
 		cfg.FilePath = v
 	}

@@ -8,6 +8,16 @@
   target: "storage-local"
   methods: ["Put", "Get", "Stat", "Delete"]
 
+# Allow scanner to write to storage (imports downloaded files)
+- caller: "media-scanner"
+  target: "storage"
+  methods: ["write"]
+
+# Allow scanner as _public caller to access storage
+- caller: "_public"
+  target: "storage"
+  methods: ["read", "write"]
+
 # Allow transcoder to read and stream from storage
 - caller: "transcoder-ffmpeg"
   target: "storage-local"
@@ -18,10 +28,22 @@
   target: "media-tv"
   methods: ["Search", "Lookup"]
 
-# Allow any module to check auth status
+# Allow media-jellyfin to stream from storage
+- caller: "media-jellyfin"
+  target: "storage"
+  methods: ["read", "write"]
+
+# Allow any authenticated module to check auth status
 - caller: "*"
   target: "auth-local"
   methods: ["Validate"]
+
+# Dev-mode: allow unauthenticated callers (from modules without auth) to
+# access storage. In production, deploy an auth module (e.g. auth-local)
+# which properly resolves caller identities.
+- caller: "_public"
+  target: "storage"
+  methods: ["read", "write"]
 
 # Catch-all for development: allow everything
 # - caller: "*"
