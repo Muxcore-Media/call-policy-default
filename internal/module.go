@@ -80,6 +80,17 @@ func (m *Module) Init(ctx context.Context) error {
 	if m.allowAll {
 		m.policy, err = policy.Parse([]byte("\n- caller: \"*\"\n  target: \"*\"\n  methods: [\"*\"]\n"))
 	} else {
+		// If the policy file doesn't exist, write a default allow-all policy.
+		if _, statErr := os.Stat(m.filePath); os.IsNotExist(statErr) {
+			defaultPolicy := []byte("# Default allow-all policy — all inter-module calls permitted\n# WARNING: Replace this with a restricted policy for production use.\n- caller: \"*\"\n  target: \"*\"\n  methods: [\"*\"]\n")
+			if writeErr := os.WriteFile(m.filePath, defaultPolicy, 0644); writeErr != nil {
+				return fmt.Errorf("create default policy file %s: %w", m.filePath, writeErr)
+			}
+			slog.Warn("no policy file found, created allow-all default",
+				"file", m.filePath,
+				"warning", "ALL inter-module calls are ALLOWED — this is NOT secure for production",
+			)
+		}
 		m.policy, err = policy.Load(m.filePath)
 	}
 	if err != nil {
