@@ -5,7 +5,7 @@ WORKDIR /build/call-policy-default
 RUN go mod download
 RUN CGO_ENABLED=0 go build -o /call-policy-default ./cmd/module
 
-FROM alpine:3.21
+FROM alpine:3.24
 RUN apk add --no-cache ca-certificates
 RUN adduser -D -h /app policy
 USER policy
