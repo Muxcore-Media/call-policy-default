@@ -1,8 +1,8 @@
 # call-policy-default — Remaining Work
 
 ### Operational
-- [ ] Audit logging of denied calls
-- [ ] Health endpoint (gRPC health check)
+- [x] Audit logging of denied calls — core fire-and-forget at mesh enforcement (`call.policy.denied`); module keeps counters/`slog`
+- [x] Health endpoint (gRPC health check)
 
 ### Advanced
 - [ ] Dynamic policy via event bus (modules request access at runtime)

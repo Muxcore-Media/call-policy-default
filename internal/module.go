@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/Muxcore-Media/call-policy-default/internal/policy"
 	"github.com/Muxcore-Media/call-policy-default/internal/server"
@@ -22,7 +23,6 @@ type Module struct {
 	grpcSrv  *grpc.Server
 	lis      net.Listener
 	filePath string
-	allowAll bool
 	id       string
 	grpcAddr string
 }
@@ -31,7 +31,6 @@ type Config struct {
 	ID       string
 	GRPCAddr string
 	FilePath string
-	AllowAll bool
 }
 
 func NewModule(cfg Config) *Module {
@@ -54,7 +53,6 @@ func NewModule(cfg Config) *Module {
 		id:       cfg.ID,
 		grpcAddr: cfg.GRPCAddr,
 		filePath: cfg.FilePath,
-		allowAll: cfg.AllowAll,
 	}
 }
 
@@ -77,39 +75,23 @@ func (m *Module) Info() contracts.ModuleInfo {
 
 func (m *Module) Init(ctx context.Context) error {
 	var err error
-	if m.allowAll {
-		m.policy, err = policy.Parse([]byte("\n- caller: \"*\"\n  target: \"*\"\n  methods: [\"*\"]\n"))
-	} else {
-		// Try to load the policy file. If it doesn't exist or isn't valid,
-		// write a default allow-all policy.
-		m.policy, err = policy.Load(m.filePath)
-		if err != nil {
-			defaultPolicy := []byte("# Default allow-all policy — all inter-module calls permitted\n# WARNING: Replace this with a restricted policy for production use.\n- caller: \"*\"\n  target: \"*\"\n  methods: [\"*\"]\n")
-			if writeErr := os.WriteFile(m.filePath, defaultPolicy, 0644); writeErr != nil {
-				return fmt.Errorf("load policy and create default: load err: %w, write err: %w", err, writeErr)
-			}
-			slog.Warn("no valid policy file found, created allow-all default",
-				"file", m.filePath,
-				"warning", "ALL inter-module calls are ALLOWED — this is NOT secure for production",
-			)
-			m.policy, err = policy.Load(m.filePath)
-		}
-	}
+	m.policy, err = policy.Load(m.filePath)
 	if err != nil {
-		return fmt.Errorf("load policy: %w", err)
+		return fmt.Errorf("load policy %q: %w", m.filePath, err)
 	}
 	m.srv = server.New(m.policy)
 	m.lis, err = net.Listen("tcp", m.grpcAddr)
 	if err != nil {
 		return fmt.Errorf("listen %s: %w", m.grpcAddr, err)
 	}
-	slog.Info("call-policy initialized", "file", m.filePath, "allow_all", m.allowAll)
+	slog.Info("call-policy initialized", "file", m.filePath)
 	return nil
 }
 
 func (m *Module) Start(ctx context.Context) error {
 	m.grpcSrv = grpc.NewServer()
 	m.srv.RegisterWithGRPC(m.grpcSrv)
+	grpc_health_v1.RegisterHealthServer(m.grpcSrv, &healthServer{})
 
 	go func() {
 		slog.Info("call-policy gRPC started", "addr", m.grpcAddr)
@@ -145,4 +127,16 @@ func (m *Module) Stop(ctx context.Context) error {
 
 func (m *Module) Health(ctx context.Context) error {
 	return nil
+}
+
+type healthServer struct {
+	grpc_health_v1.UnimplementedHealthServer
+}
+
+func (s *healthServer) Check(_ context.Context, _ *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
+	return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVING}, nil
+}
+
+func (s *healthServer) Watch(_ *grpc_health_v1.HealthCheckRequest, stream grpc_health_v1.Health_WatchServer) error {
+	return stream.Send(&grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVING})
 }
