@@ -2,7 +2,7 @@
 
 ## Core Version
 
-Requires MuxCore v1.0.0 or later.
+Requires MuxCore v0.4.0 or later (`minCoreVersion` in `muxcore.json`).
 
 ## Capabilities
 

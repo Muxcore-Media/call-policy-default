@@ -8,9 +8,9 @@ Core refuses all `mesh.Call()` requests until a module implementing
 
 ## How It Works
 
-The module provides a static policy file (`policies.yaml`) that declares which
-modules may call which other modules. The mesh client consults this module
-before dispatching every `Call()`.
+The module loads a static YAML policy (`policies.yaml`) that declares which
+callers may invoke which targets and methods. The mesh client consults this
+module before dispatching every `Call()`.
 
 ```
 Module A calls Module B
@@ -34,6 +34,9 @@ call-policy-default.AllowCall("moduleA", "moduleB", "method")
 
 ### Policy File (`policies.yaml`)
 
+Rules are evaluated in order; the first match wins. If no rule matches, the
+call is denied. Wildcard `"*"` matches any caller, target, or method.
+
 ```yaml
 # Allow module to call any method on any target
 - caller: "downloader-qbittorrent"
@@ -45,19 +48,25 @@ call-policy-default.AllowCall("moduleA", "moduleB", "method")
   target: "transcoder-ffmpeg"
   methods: ["Transcode", "Status"]
 
-# Development mode: allow all
-- caller: "*"
-  target: "*"
-  methods: ["*"]
+# Development mode: allow all (uncomment only for local use)
+# - caller: "*"
+#   target: "*"
+#   methods: ["*"]
 ```
 
-### CLI Flags
+If the policy file is missing or invalid at startup, Init fails. Ship and
+maintain an explicit `policies.yaml` (the repo includes a starter file).
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--policy-file` | `policies.yaml` | Path to policy YAML file |
-| `--allow-all` | `false` | Permit all inter-module calls (development) |
-| `--deny-all` | `false` | Deny all inter-module calls (locked down) |
+### Environment
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CALL_POLICY_FILE` | `policies.yaml` | Path to policy YAML file |
+| `CALL_POLICY_GRPC_ADDR` | `:9101` | Listen address for this module's gRPC server |
+| `MUXCORE_INSECURE_DISABLE_TLS` | unset | Set to `true` for insecure mesh registration (dev) |
+
+Mesh registration also uses the module SDK (`MUXCORE_GRPC_ADDR`,
+`MUXCORE_MODULE_ID`, `--muxcore-mesh-addr`, `--muxcore-module-id`).
 
 ### Hot-Reload
 
@@ -66,7 +75,11 @@ SIGHUP reloads the policy file without restarting the module.
 ## Implementation
 
 - Registers with capability: `"call.policy"`
-- Implements `contracts.CallPolicyProvider`
-- Also implements `contracts.ResourceCallPolicyProvider` for method-level control
-- Audits denied calls via `AuditLogger`
-- Exposes metrics: `call_policy_allowed_total`, `call_policy_denied_total`
+- Provides `muxcore.policy.v1.PolicyService` (sidecar); core wires it as
+  `contracts.CallPolicyProvider`
+- Method-level control via each rule's `methods` list (including `"*"`)
+- `AllowPublish` always denies — deploy `publish-policy-default` for publish policy
+- Denied calls are audited by **core** at mesh enforcement (not via module `AuditLogger`); module keeps counters/`slog`
+- Registers `grpc_health_v1` (SERVING) on the module gRPC server
+- Tracks counters `call_policy_allowed_total` / `call_policy_denied_total`
+  (`PolicyServer.Metrics()`); no HTTP metrics endpoint
