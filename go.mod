@@ -12,7 +12,7 @@ require (
 	github.com/Muxcore-Media/core v0.4.0
 	github.com/Muxcore-Media/core/pkg/contracts v0.0.0
 	github.com/Muxcore-Media/core/sdk/go/module v0.1.0
-	google.golang.org/grpc v1.82.0
+	google.golang.org/grpc v1.82.1
 	gopkg.in/yaml.v3 v3.0.1
 )
 
