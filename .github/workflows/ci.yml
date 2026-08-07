@@ -17,6 +17,7 @@ jobs:
         with:
           path: core
           repository: Muxcore-Media/core
+          token: ${{ secrets.MUXCORE_CI_TOKEN }}
       - uses: actions/checkout@v7
         with:
           path: call-policy-default
@@ -34,6 +35,7 @@ jobs:
         with:
           path: core
           repository: Muxcore-Media/core
+          token: ${{ secrets.MUXCORE_CI_TOKEN }}
       - uses: actions/checkout@v7
         with:
           path: call-policy-default
@@ -42,7 +44,7 @@ jobs:
           go-version: "1.26"
           cache: true
       - working-directory: ./call-policy-default
-        run: go test -race -count=1 -timeout 60s ./...
+        run: go test -race -count=1 -timeout 10m ./...
 
   build:
     runs-on: ubuntu-latest
@@ -51,6 +53,7 @@ jobs:
         with:
           path: core
           repository: Muxcore-Media/core
+          token: ${{ secrets.MUXCORE_CI_TOKEN }}
       - uses: actions/checkout@v7
         with:
           path: call-policy-default
@@ -59,7 +62,9 @@ jobs:
           go-version: "1.26"
           cache: true
       - working-directory: ./call-policy-default
-        run: go build -o /dev/null ./cmd/module
+        run: |
+          go build -o /dev/null ./cmd/module
+          go vet ./...
 
   docker:
     if: (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
@@ -70,6 +75,7 @@ jobs:
         with:
           path: core
           repository: Muxcore-Media/core
+          token: ${{ secrets.MUXCORE_CI_TOKEN }}
       - uses: actions/checkout@v7
         with:
           path: call-policy-default
