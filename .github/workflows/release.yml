@@ -19,14 +19,19 @@ jobs:
           mkdir -p dist
           GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o dist/call-policy-default-linux-amd64 ./cmd/module
           GOOS=linux GOARCH=arm64 go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o dist/call-policy-default-linux-arm64 ./cmd/module
+      - name: Lowercase image name
+        run: |
+          echo "IMAGE_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+          echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v7
         with:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/call-policy-default:${{ github.ref_name }}
-            ghcr.io/${{ github.repository_owner }}/call-policy-default:latest
+            ghcr.io/${{ env.IMAGE_OWNER }}/call-policy-default:${{ github.ref_name }}
+            ghcr.io/${{ env.IMAGE_OWNER }}/call-policy-default:latest
       - name: Create release
         uses: softprops/action-gh-release@v3
         with:
