@@ -5,7 +5,7 @@
 - [x] Health endpoint (gRPC health check)
 
 ### Advanced
-- [ ] Dynamic policy via event bus (modules request access at runtime)
-- [ ] Rate-limited access patterns
-- [ ] Time-based policies (allow during maintenance windows)
-- [ ] Policy groups (apply same rules to multiple callers)
+- [x] Dynamic policy via event bus (modules request access at runtime) — `call.policy.grant` / `call.policy.revoke` (v0.3.0)
+- [x] Rate-limited access patterns
+- [x] Time-based policies (allow during maintenance windows)
+- [x] Policy groups (apply same rules to multiple callers)

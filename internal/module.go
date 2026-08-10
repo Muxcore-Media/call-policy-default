@@ -15,6 +15,7 @@ import (
 	"github.com/Muxcore-Media/call-policy-default/internal/policy"
 	"github.com/Muxcore-Media/call-policy-default/internal/server"
 	"github.com/Muxcore-Media/core/pkg/contracts"
+	"github.com/Muxcore-Media/core/sdk/go/client"
 )
 
 type Module struct {
@@ -25,6 +26,7 @@ type Module struct {
 	filePath string
 	id       string
 	grpcAddr string
+	mc       *client.Client
 }
 
 type Config struct {
@@ -60,9 +62,9 @@ func (m *Module) Info() contracts.ModuleInfo {
 	return contracts.ModuleInfo{
 		ID:           m.id,
 		Name:         "Call Policy Default",
-		Version:      "0.2.0",
+		Version:      "0.3.0",
 		Roles:        []string{"security"},
-		Description:  "Default inter-module call access control with static allow-list policy",
+		Description:  "Default inter-module call access control with static YAML and dynamic event-bus grants",
 		Author:       "MuxCore",
 		Capabilities: []string{contracts.CapabilityCallPolicy},
 		Contracts: []contracts.ContractDeclaration{
@@ -114,6 +116,8 @@ func (m *Module) Start(ctx context.Context) error {
 			slog.Info("policy reloaded")
 		}
 	}()
+
+	go m.subscribePolicyEvents()
 	return nil
 }
 
