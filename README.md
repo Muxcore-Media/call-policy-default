@@ -68,6 +68,26 @@ maintain an explicit `policies.yaml` (the repo includes a starter file).
 Mesh registration also uses the module SDK (`MUXCORE_GRPC_ADDR`,
 `MUXCORE_MODULE_ID`, `--muxcore-mesh-addr`, `--muxcore-module-id`).
 
+
+### Advanced rules (v0.2+)
+
+```yaml
+groups:
+  media-managers:
+    - media-movies
+    - media-tv
+rules:
+  - caller_group: media-managers
+    target: "transcoder-ffmpeg"
+    methods: ["Transcode"]
+    rate_limit_per_min: 30
+    after: "08:00"
+    before: "22:00"
+    days: ["mon", "tue", "wed", "thu", "fri"]
+```
+
+Legacy files that are a bare YAML list of rules still work.
+
 ### Hot-Reload
 
 SIGHUP reloads the policy file without restarting the module.

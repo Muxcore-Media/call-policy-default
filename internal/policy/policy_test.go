@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestParse_EmptyRules(t *testing.T) {
@@ -256,5 +257,92 @@ func TestAllow_MultipleRules(t *testing.T) {
 			t.Errorf("Allow(%q, %q, %q) = %v, want %v",
 				tt.caller, tt.target, tt.method, allowed, tt.allowed)
 		}
+	}
+}
+
+func TestAllow_RateLimit(t *testing.T) {
+	p, err := Parse([]byte(`
+- caller: "a"
+  target: "b"
+  methods: ["M"]
+  rate_limit_per_min: 2
+`))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	fixed := time.Date(2026, 8, 9, 12, 0, 0, 0, time.UTC)
+	p.now = func() time.Time { return fixed }
+	if ok, _ := p.Allow("a", "b", "M"); !ok {
+		t.Fatal("1st should allow")
+	}
+	if ok, _ := p.Allow("a", "b", "M"); !ok {
+		t.Fatal("2nd should allow")
+	}
+	if ok, reason := p.Allow("a", "b", "M"); ok {
+		t.Fatalf("3rd should deny, got allow")
+	} else if reason == "" {
+		t.Fatal("expected rate limit reason")
+	}
+}
+
+func TestAllow_TimeWindow(t *testing.T) {
+	p, err := Parse([]byte(`
+- caller: "a"
+  target: "b"
+  methods: ["M"]
+  after: "09:00"
+  before: "17:00"
+  days: ["mon"]
+`))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	// Monday 2026-08-10 is a Monday
+	p.now = func() time.Time { return time.Date(2026, 8, 10, 10, 0, 0, 0, time.UTC) }
+	if ok, _ := p.Allow("a", "b", "M"); !ok {
+		t.Fatal("expected allow inside window on Monday")
+	}
+	p.now = func() time.Time { return time.Date(2026, 8, 10, 18, 0, 0, 0, time.UTC) }
+	if ok, _ := p.Allow("a", "b", "M"); ok {
+		t.Fatal("expected deny outside window")
+	}
+	p.now = func() time.Time { return time.Date(2026, 8, 11, 10, 0, 0, 0, time.UTC) } // Tuesday
+	if ok, _ := p.Allow("a", "b", "M"); ok {
+		t.Fatal("expected deny on Tuesday")
+	}
+}
+
+func TestAllow_CallerGroup(t *testing.T) {
+	p, err := Parse([]byte(`
+groups:
+  media:
+    - media-movies
+    - media-tv
+rules:
+  - caller_group: media
+    target: "storage"
+    methods: ["Get"]
+`))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if ok, _ := p.Allow("media-movies", "storage", "Get"); !ok {
+		t.Fatal("group member should allow")
+	}
+	if ok, _ := p.Allow("other", "storage", "Get"); ok {
+		t.Fatal("non-member should deny")
+	}
+}
+
+func TestParse_UnknownGroup(t *testing.T) {
+	_, err := Parse([]byte(`
+groups: {}
+rules:
+  - caller_group: nope
+    target: "b"
+    methods: ["M"]
+`))
+	if err == nil {
+		t.Fatal("expected unknown group error")
 	}
 }
