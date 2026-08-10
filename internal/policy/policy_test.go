@@ -346,3 +346,91 @@ rules:
 		t.Fatal("expected unknown group error")
 	}
 }
+
+func TestDynamicGrantAndRevoke(t *testing.T) {
+	p, err := Parse([]byte(`[]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok, _ := p.Allow("mod-a", "mod-b", "Call"); ok {
+		t.Fatal("expected deny before grant")
+	}
+	id, err := p.GrantDynamic("g1", "mod-a", "mod-b", []string{"Call"}, 0)
+	if err != nil || id != "g1" {
+		t.Fatalf("grant: id=%s err=%v", id, err)
+	}
+	if ok, _ := p.Allow("mod-a", "mod-b", "Call"); !ok {
+		t.Fatal("expected allow after grant")
+	}
+	if ok, _ := p.Allow("mod-a", "mod-b", "Other"); ok {
+		t.Fatal("other method still denied")
+	}
+	if !p.RevokeDynamic("g1") {
+		t.Fatal("expected revoke")
+	}
+	if ok, _ := p.Allow("mod-a", "mod-b", "Call"); ok {
+		t.Fatal("expected deny after revoke")
+	}
+}
+
+func TestDynamicGrantTTL(t *testing.T) {
+	p, err := Parse([]byte(`[]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := time.Date(2026, 8, 10, 12, 0, 0, 0, time.UTC)
+	p.now = func() time.Time { return base }
+	if _, err := p.GrantDynamic("ttl1", "a", "b", []string{"M"}, time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	if ok, _ := p.Allow("a", "b", "M"); !ok {
+		t.Fatal("allow inside ttl")
+	}
+	p.now = func() time.Time { return base.Add(2 * time.Minute) }
+	if ok, _ := p.Allow("a", "b", "M"); ok {
+		t.Fatal("deny after ttl")
+	}
+	if p.DynamicCount() != 0 {
+		t.Fatal("expired grants should be pruned")
+	}
+}
+
+func TestDynamicSurvivesReplaceRules(t *testing.T) {
+	p, err := Parse([]byte(`[]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.GrantDynamic("keep", "a", "b", []string{"M"}, 0); err != nil {
+		t.Fatal(err)
+	}
+	fresh, err := Parse([]byte(`
+- caller: "x"
+  target: "y"
+  methods: ["Z"]
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.ReplaceRules(fresh)
+	if ok, _ := p.Allow("a", "b", "M"); !ok {
+		t.Fatal("dynamic grant should survive SIGHUP reload")
+	}
+	if ok, _ := p.Allow("x", "y", "Z"); !ok {
+		t.Fatal("static rule from reload should apply")
+	}
+}
+
+func TestRevokeDynamicMatch(t *testing.T) {
+	p, err := Parse([]byte(`[]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.GrantDynamic("1", "a", "b", []string{"M"}, 0)
+	p.GrantDynamic("2", "a", "c", []string{"M"}, 0)
+	if n := p.RevokeDynamicMatch("a", "b"); n != 1 {
+		t.Fatalf("revoke match count=%d", n)
+	}
+	if ok, _ := p.Allow("a", "c", "M"); !ok {
+		t.Fatal("other grant should remain")
+	}
+}

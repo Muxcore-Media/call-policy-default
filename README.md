@@ -88,9 +88,20 @@ rules:
 
 Legacy files that are a bare YAML list of rules still work.
 
+### Dynamic grants (v0.3+)
+
+Modules can request temporary access at runtime by publishing mesh events:
+
+| Event | Payload |
+|-------|---------|
+| `call.policy.grant` | `{"id":"optional","caller":"mod-a","target":"mod-b","methods":["Call"],"ttl_seconds":300}` |
+| `call.policy.revoke` | `{"id":"optional"}` or `{"caller":"mod-a","target":"mod-b"}` |
+
+Grants are evaluated after static YAML rules. They survive SIGHUP reloads and expire when `ttl_seconds` elapses (`0` = until revoke / process exit).
+
 ### Hot-Reload
 
-SIGHUP reloads the policy file without restarting the module.
+SIGHUP reloads the policy file without restarting the module (dynamic grants are kept).
 
 ## Implementation
 
