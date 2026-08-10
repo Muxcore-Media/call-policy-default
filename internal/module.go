@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"google.golang.org/grpc"
@@ -16,6 +17,7 @@ import (
 	"github.com/Muxcore-Media/call-policy-default/internal/server"
 	"github.com/Muxcore-Media/core/pkg/contracts"
 	"github.com/Muxcore-Media/core/sdk/go/client"
+	modulesdk "github.com/Muxcore-Media/core/sdk/go/module"
 )
 
 type Module struct {
@@ -23,6 +25,7 @@ type Module struct {
 	srv      *server.PolicyServer
 	grpcSrv  *grpc.Server
 	lis      net.Listener
+	cfgMu    sync.RWMutex
 	filePath string
 	id       string
 	grpcAddr string
@@ -62,7 +65,7 @@ func (m *Module) Info() contracts.ModuleInfo {
 	return contracts.ModuleInfo{
 		ID:           m.id,
 		Name:         "Call Policy Default",
-		Version:      "0.3.1",
+		Version:      "0.3.2",
 		Roles:        []string{"security"},
 		Description:  "Default inter-module call access control with static YAML and dynamic event-bus grants",
 		Author:       "MuxCore",
@@ -94,6 +97,7 @@ func (m *Module) Start(ctx context.Context) error {
 	m.grpcSrv = grpc.NewServer()
 	m.srv.RegisterWithGRPC(m.grpcSrv)
 	grpc_health_v1.RegisterHealthServer(m.grpcSrv, &healthServer{})
+	modulesdk.RegisterSettings(m.grpcSrv, m.id, m)
 
 	go func() {
 		slog.Info("call-policy gRPC started", "addr", m.grpcAddr)
@@ -107,13 +111,9 @@ func (m *Module) Start(ctx context.Context) error {
 	go func() {
 		for range sighupCh {
 			slog.Info("SIGHUP: reloading policy")
-			newP, err := policy.Load(m.filePath)
-			if err != nil {
+			if err := m.ReloadPolicy(); err != nil {
 				slog.Error("policy reload failed", "error", err)
-				continue
 			}
-			m.policy.ReplaceRules(newP)
-			slog.Info("policy reloaded")
 		}
 	}()
 
