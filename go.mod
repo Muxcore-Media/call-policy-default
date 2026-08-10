@@ -5,6 +5,7 @@ go 1.26.4
 require (
 	github.com/Muxcore-Media/core v0.5.0
 	github.com/Muxcore-Media/core/pkg/contracts v0.5.0
+	github.com/Muxcore-Media/core/sdk/go/client v0.5.0
 	github.com/Muxcore-Media/core/sdk/go/module v0.5.0
 	google.golang.org/grpc v1.82.0
 	gopkg.in/yaml.v3 v3.0.1
