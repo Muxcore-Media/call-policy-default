@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.0] — 2026-08-10
+
+### Added
+
+- Dynamic policy via event bus: subscribe to `call.policy.grant` / `call.policy.revoke`
+  - Grant payload: `{id, caller, target, methods[], ttl_seconds}`
+  - Revoke by `id` or caller/target match
+  - TTL expiry; grants survive SIGHUP static reload
+
 ## [0.2.0] — 2026-08-09
 
 ### Added
