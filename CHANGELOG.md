@@ -1,5 +1,11 @@
 # Changelog
 
+
+## [0.3.1] — 2026-08-10
+
+### Fixed
+- Sync Info()/muxcore.json version to **0.3.1**.
+
 ## [0.3.0] — 2026-08-10
 
 ### Added
