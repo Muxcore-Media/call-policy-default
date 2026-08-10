@@ -1,13 +1,14 @@
 {
   "name": "Call Policy Default",
   "description": "Default inter-module call access control with static allow-list policy.",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "author": "MuxCore",
   "roles": [
     "security"
   ],
   "capabilities": [
-    "call.policy"
+    "call.policy",
+    "settings"
   ],
   "contracts": [
     {
