@@ -42,11 +42,19 @@ type Policy struct {
 	rules  []Rule
 	groups map[string][]string
 
+	dynamic []dynamicGrant
+
 	rateMu sync.Mutex
 	rates  map[string]*rateWindow
 
 	// now is injectable for tests; defaults to time.Now.
 	now func() time.Time
+}
+
+type dynamicGrant struct {
+	ID      string
+	Rule    Rule
+	Expires time.Time // zero means no expiry
 }
 
 type rateWindow struct {
@@ -136,9 +144,13 @@ func Parse(data []byte) (*Policy, error) {
 }
 
 // Allow checks whether a call from caller to target with the given method is permitted.
-// Rules are evaluated in order; the first matching rule decides. If no rule matches, the
-// call is denied (deny-by-default).
+// Rules are evaluated in order; the first matching rule decides. If no static rule
+// matches, dynamic grants from the event bus are checked. If none match, denied.
 func (p *Policy) Allow(caller, target, method string) (bool, string) {
+	p.mu.Lock()
+	p.pruneExpiredLocked()
+	p.mu.Unlock()
+
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
@@ -172,6 +184,21 @@ func (p *Policy) Allow(caller, target, method string) (bool, string) {
 		}
 		return true, ""
 	}
+
+	for _, g := range p.dynamic {
+		r := g.Rule
+		if !matchWildcard(r.Caller, caller) {
+			continue
+		}
+		if !matchWildcard(r.Target, target) {
+			continue
+		}
+		if !matchMethod(r.Methods, method) {
+			continue
+		}
+		return true, ""
+	}
+
 	return false, fmt.Sprintf("no policy rule matches caller=%q target=%q method=%q", caller, target, method)
 }
 
@@ -203,8 +230,8 @@ func (p *Policy) allowRate(key string, limit int, now time.Time) bool {
 	return true
 }
 
-// ReplaceRules atomically replaces all rules with those from another Policy.
-// Used for SIGHUP hot-reload. src is not modified. Rate windows are reset.
+// ReplaceRules atomically replaces all static rules with those from another Policy.
+// Used for SIGHUP hot-reload. Dynamic event-bus grants are preserved. Rate windows reset.
 func (p *Policy) ReplaceRules(src *Policy) {
 	src.mu.RLock()
 	rules := make([]Rule, len(src.rules))
@@ -220,6 +247,118 @@ func (p *Policy) ReplaceRules(src *Policy) {
 	p.rateMu.Lock()
 	p.rates = make(map[string]*rateWindow)
 	p.rateMu.Unlock()
+}
+
+// GrantDynamic adds a runtime allow rule (from call.policy.grant).
+// If id is empty, one is generated. ttl<=0 means until revoke or process exit.
+// Replacing an existing id updates the grant.
+func (p *Policy) GrantDynamic(id, caller, target string, methods []string, ttl time.Duration) (string, error) {
+	if caller == "" {
+		return "", fmt.Errorf("caller is required")
+	}
+	if target == "" {
+		return "", fmt.Errorf("target is required")
+	}
+	if len(methods) == 0 {
+		return "", fmt.Errorf("at least one method is required")
+	}
+	if id == "" {
+		id = fmt.Sprintf("dyn_%d", time.Now().UnixNano())
+	}
+	var expires time.Time
+	if ttl > 0 {
+		now := time.Now()
+		if p.now != nil {
+			now = p.now()
+		}
+		expires = now.Add(ttl)
+	}
+	g := dynamicGrant{
+		ID: id,
+		Rule: Rule{
+			Caller:  caller,
+			Target:  target,
+			Methods: append([]string(nil), methods...),
+		},
+		Expires: expires,
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for i := range p.dynamic {
+		if p.dynamic[i].ID == id {
+			p.dynamic[i] = g
+			return id, nil
+		}
+	}
+	p.dynamic = append(p.dynamic, g)
+	return id, nil
+}
+
+// RevokeDynamic removes a grant by id. Returns true if a grant was removed.
+func (p *Policy) RevokeDynamic(id string) bool {
+	if id == "" {
+		return false
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	out := p.dynamic[:0]
+	removed := false
+	for _, g := range p.dynamic {
+		if g.ID == id {
+			removed = true
+			continue
+		}
+		out = append(out, g)
+	}
+	p.dynamic = out
+	return removed
+}
+
+// RevokeDynamicMatch removes grants matching caller and/or target.
+// Empty caller or target means "any". At least one of caller/target must be set.
+func (p *Policy) RevokeDynamicMatch(caller, target string) int {
+	if caller == "" && target == "" {
+		return 0
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	out := p.dynamic[:0]
+	n := 0
+	for _, g := range p.dynamic {
+		callerOK := caller == "" || g.Rule.Caller == caller || matchWildcard(caller, g.Rule.Caller)
+		targetOK := target == "" || g.Rule.Target == target || matchWildcard(target, g.Rule.Target)
+		if callerOK && targetOK {
+			n++
+			continue
+		}
+		out = append(out, g)
+	}
+	p.dynamic = out
+	return n
+}
+
+func (p *Policy) pruneExpiredLocked() {
+	now := time.Now()
+	if p.now != nil {
+		now = p.now()
+	}
+	out := p.dynamic[:0]
+	for _, g := range p.dynamic {
+		if !g.Expires.IsZero() && !now.Before(g.Expires) {
+			continue
+		}
+		out = append(out, g)
+	}
+	p.dynamic = out
+}
+
+// DynamicCount returns the number of active dynamic grants (after pruning).
+func (p *Policy) DynamicCount() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.pruneExpiredLocked()
+	return len(p.dynamic)
 }
 
 func cloneGroups(in map[string][]string) map[string][]string {
