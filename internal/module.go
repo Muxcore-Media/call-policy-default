@@ -62,7 +62,7 @@ func (m *Module) Info() contracts.ModuleInfo {
 	return contracts.ModuleInfo{
 		ID:           m.id,
 		Name:         "Call Policy Default",
-		Version:      "0.3.0",
+		Version:      "0.3.1",
 		Roles:        []string{"security"},
 		Description:  "Default inter-module call access control with static YAML and dynamic event-bus grants",
 		Author:       "MuxCore",
