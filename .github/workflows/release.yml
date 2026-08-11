@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: "1.26"
-          cache: true
+          cache: false
       - name: Build binaries
         run: |
           mkdir -p dist
