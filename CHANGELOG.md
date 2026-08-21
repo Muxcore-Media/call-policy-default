@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.5] — 2026-08-20
+
+### Fixed
+
+- `media-scanner` storage ACL includes `read` so `ImportPath` can List/Get `storage://torrent/…/files/` objects (mesh-backed torrents).
+
+## [0.3.4] — 2026-08-20
+
+### Added
+
+- Allow `downloader-native-torrent` storage read/write (mesh piece I/O).
+- Allow `indexer-torznab`, `indexer-piratebay`, and `indexer-mux` storage read/write (`.torrent` / metadata cache).
+
 ## [0.3.3] — 2026-08-10
 
 ### Added
