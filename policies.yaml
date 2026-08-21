@@ -8,10 +8,26 @@
   target: "storage-local"
   methods: ["Put", "Get", "Stat", "Delete"]
 
-# Allow scanner to write to storage (imports downloaded files)
+# Native torrent client streams pieces via StorageService
+- caller: "downloader-native-torrent"
+  target: "storage"
+  methods: ["read", "write"]
+
+# Indexers may cache .torrent / magnet metadata in storage
+- caller: "indexer-torznab"
+  target: "storage"
+  methods: ["read", "write"]
+- caller: "indexer-piratebay"
+  target: "storage"
+  methods: ["read", "write"]
+- caller: "indexer-mux"
+  target: "storage"
+  methods: ["read", "write"]
+
+# Allow scanner to read (ImportPath storage://) and write library objects
 - caller: "media-scanner"
   target: "storage"
-  methods: ["write"]
+  methods: ["read", "write"]
 
 # Allow scanner as _public caller to access storage
 - caller: "_public"
