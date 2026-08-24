@@ -55,7 +55,7 @@ func TestModuleGRPCHealth(t *testing.T) {
 	if err := m.Start(ctx); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
-	defer m.Stop(ctx)
+	defer func() { _ = m.Stop(ctx) }()
 
 	if err := m.Health(ctx); err != nil {
 		t.Fatalf("Health: %v", err)
@@ -65,7 +65,7 @@ func TestModuleGRPCHealth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	resp, err := grpc_health_v1.NewHealthClient(conn).Check(ctx, &grpc_health_v1.HealthCheckRequest{})
 	if err != nil {
