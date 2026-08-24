@@ -62,6 +62,25 @@ type rateWindow struct {
 	count int
 }
 
+// LoadWithOverlay loads base rules then appends overlay rules (dev-only extras).
+func LoadWithOverlay(basePath, overlayPath string) (*Policy, error) {
+	p, err := Load(basePath)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(overlayPath) == "" {
+		return p, nil
+	}
+	o, err := Load(overlayPath)
+	if err != nil {
+		return nil, fmt.Errorf("load overlay %q: %w", overlayPath, err)
+	}
+	p.mu.Lock()
+	p.rules = append(p.rules, o.rules...)
+	p.mu.Unlock()
+	return p, nil
+}
+
 // Load parses a YAML policy file and returns a Policy.
 func Load(path string) (*Policy, error) {
 	data, err := os.ReadFile(path)

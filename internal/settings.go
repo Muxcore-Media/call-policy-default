@@ -3,6 +3,7 @@ package internal
 import (
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 
 	"github.com/Muxcore-Media/call-policy-default/internal/policy"
@@ -57,11 +58,12 @@ func (m *Module) ReloadPolicy() error {
 	m.cfgMu.RLock()
 	path := m.filePath
 	m.cfgMu.RUnlock()
-	newP, err := policy.Load(path)
+	overlay := strings.TrimSpace(os.Getenv("CALL_POLICY_DEV_FILE"))
+	newP, err := policy.LoadWithOverlay(path, overlay)
 	if err != nil {
 		return err
 	}
 	m.policy.ReplaceRules(newP)
-	slog.Info("call-policy reloaded", "file", path)
+	slog.Info("call-policy reloaded", "file", path, "overlay", overlay)
 	return nil
 }
