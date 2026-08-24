@@ -1,7 +1,5 @@
-# call-policy-default — inter-module call policy
-#
-# Rules are evaluated in order. The first matching rule decides.
-# Wildcard "*" matches any caller, target, or method.
+# Production call policy — no _public storage access.
+# Dev overlay: policies-dev.yaml (selected by MUXCORE_PROFILE=dev in run-host.sh).
 
 # Allow downloader to read/write storage
 - caller: "downloader-qbittorrent"
@@ -29,11 +27,6 @@
   target: "storage"
   methods: ["read", "write"]
 
-# Allow scanner as _public caller to access storage
-- caller: "_public"
-  target: "storage"
-  methods: ["read", "write"]
-
 # Allow transcoder to read and stream from storage
 - caller: "transcoder-ffmpeg"
   target: "storage-local"
@@ -54,14 +47,7 @@
   target: "auth-local"
   methods: ["Validate"]
 
-# Dev-mode: allow unauthenticated callers (from modules without auth) to
-# access storage. In production, deploy an auth module (e.g. auth-local)
-# which properly resolves caller identities.
-- caller: "_public"
-  target: "storage"
-  methods: ["read", "write"]
-
-# Catch-all for development: allow everything
+# Catch-all deny (explicit; uncomment only in policies-dev.yaml)
 # - caller: "*"
 #   target: "*"
 #   methods: ["*"]

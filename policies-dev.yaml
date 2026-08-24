@@ -1,0 +1,7 @@
+# Dev-only call policy overlay — permissive _public storage rules for local smoke.
+# Appended to policies.yaml when MUXCORE_PROFILE=dev and MUXCORE_REQUIRE_TLS is unset.
+
+# Allow scanner as _public caller to access storage (legacy smoke paths)
+- caller: "_public"
+  target: "storage"
+  methods: ["read", "write"]

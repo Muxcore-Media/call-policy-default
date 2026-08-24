@@ -80,7 +80,8 @@ func (m *Module) Info() contracts.ModuleInfo {
 
 func (m *Module) Init(ctx context.Context) error {
 	var err error
-	m.policy, err = policy.Load(m.filePath)
+	overlay := strings.TrimSpace(os.Getenv("CALL_POLICY_DEV_FILE"))
+	m.policy, err = policy.LoadWithOverlay(m.filePath, overlay)
 	if err != nil {
 		return fmt.Errorf("load policy %q: %w", m.filePath, err)
 	}
