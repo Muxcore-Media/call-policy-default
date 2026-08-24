@@ -425,8 +425,12 @@ func TestRevokeDynamicMatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p.GrantDynamic("1", "a", "b", []string{"M"}, 0)
-	p.GrantDynamic("2", "a", "c", []string{"M"}, 0)
+	if _, err := p.GrantDynamic("1", "a", "b", []string{"M"}, 0); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.GrantDynamic("2", "a", "c", []string{"M"}, 0); err != nil {
+		t.Fatal(err)
+	}
 	if n := p.RevokeDynamicMatch("a", "b"); n != 1 {
 		t.Fatalf("revoke match count=%d", n)
 	}
