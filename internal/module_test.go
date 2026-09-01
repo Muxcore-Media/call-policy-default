@@ -67,12 +67,31 @@ func TestModuleGRPCHealth(t *testing.T) {
 	}
 	defer func() { _ = conn.Close() }()
 
-	resp, err := grpc_health_v1.NewHealthClient(conn).Check(ctx, &grpc_health_v1.HealthCheckRequest{})
+	health := grpc_health_v1.NewHealthClient(conn)
+	resp, err := health.Check(ctx, &grpc_health_v1.HealthCheckRequest{})
 	if err != nil {
 		t.Fatalf("Check: %v", err)
 	}
 	if resp.GetStatus() != grpc_health_v1.HealthCheckResponse_SERVING {
 		t.Fatalf("expected SERVING, got %s", resp.GetStatus())
+	}
+
+	watchCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	stream, err := health.Watch(watchCtx, &grpc_health_v1.HealthCheckRequest{})
+	if err != nil {
+		t.Fatalf("Watch: %v", err)
+	}
+	first, err := stream.Recv()
+	if err != nil {
+		t.Fatalf("Watch Recv: %v", err)
+	}
+	if first.GetStatus() != grpc_health_v1.HealthCheckResponse_SERVING {
+		t.Fatalf("Watch expected SERVING, got %s", first.GetStatus())
+	}
+	cancel()
+	if _, err := stream.Recv(); err == nil {
+		t.Fatal("expected Watch stream to end after client cancel")
 	}
 }
 

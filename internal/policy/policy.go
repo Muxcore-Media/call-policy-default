@@ -32,15 +32,17 @@ type Rule struct {
 }
 
 type policyDoc struct {
-	Groups map[string][]string `yaml:"groups"`
-	Rules  []Rule              `yaml:"rules"`
+	Groups   map[string][]string `yaml:"groups"`
+	Grantors []string            `yaml:"grantors"`
+	Rules    []Rule              `yaml:"rules"`
 }
 
 // Policy holds the complete set of call policy rules.
 type Policy struct {
-	mu     sync.RWMutex
-	rules  []Rule
-	groups map[string][]string
+	mu       sync.RWMutex
+	rules    []Rule
+	groups   map[string][]string
+	grantors []string
 
 	dynamic []dynamicGrant
 
@@ -77,6 +79,7 @@ func LoadWithOverlay(basePath, overlayPath string) (*Policy, error) {
 	}
 	p.mu.Lock()
 	p.rules = append(p.rules, o.rules...)
+	p.groups = mergeGroups(p.groups, o.groups)
 	p.mu.Unlock()
 	return p, nil
 }
@@ -103,6 +106,7 @@ func Parse(data []byte) (*Policy, error) {
 
 	var rules []Rule
 	var groups map[string][]string
+	var grantors []string
 
 	switch node.Kind {
 	case yaml.SequenceNode, 0:
@@ -116,6 +120,7 @@ func Parse(data []byte) (*Policy, error) {
 		}
 		rules = doc.Rules
 		groups = doc.Groups
+		grantors = doc.Grantors
 	default:
 		// empty / null → deny-all
 		rules = nil
@@ -155,10 +160,11 @@ func Parse(data []byte) (*Policy, error) {
 		}
 	}
 	return &Policy{
-		rules:  rules,
-		groups: groups,
-		rates:  make(map[string]*rateWindow),
-		now:    time.Now,
+		rules:    rules,
+		groups:   groups,
+		grantors: append([]string(nil), grantors...),
+		rates:    make(map[string]*rateWindow),
+		now:      time.Now,
 	}, nil
 }
 
@@ -256,11 +262,13 @@ func (p *Policy) ReplaceRules(src *Policy) {
 	rules := make([]Rule, len(src.rules))
 	copy(rules, src.rules)
 	groups := cloneGroups(src.groups)
+	grantors := append([]string(nil), src.grantors...)
 	src.mu.RUnlock()
 
 	p.mu.Lock()
 	p.rules = rules
 	p.groups = groups
+	p.grantors = grantors
 	p.mu.Unlock()
 
 	p.rateMu.Lock()
@@ -372,6 +380,36 @@ func (p *Policy) pruneExpiredLocked() {
 	p.dynamic = out
 }
 
+// GrantorAllowed reports whether source may publish dynamic grant/revoke events.
+func (p *Policy) GrantorAllowed(source string) bool {
+	source = strings.TrimSpace(source)
+	if source == "" {
+		return false
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	for _, g := range p.grantors {
+		if g == source || (g == "*" && source != "") {
+			return true
+		}
+	}
+	return false
+}
+
+// Grantors returns a copy of configured grantor module IDs.
+func (p *Policy) Grantors() []string {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return append([]string(nil), p.grantors...)
+}
+
+// SetGrantors replaces the runtime grantor allowlist (e.g. from settings).
+func (p *Policy) SetGrantors(grantors []string) {
+	p.mu.Lock()
+	p.grantors = append([]string(nil), grantors...)
+	p.mu.Unlock()
+}
+
 // DynamicCount returns the number of active dynamic grants (after pruning).
 func (p *Policy) DynamicCount() int {
 	p.mu.Lock()
@@ -387,6 +425,32 @@ func cloneGroups(in map[string][]string) map[string][]string {
 	out := make(map[string][]string, len(in))
 	for k, v := range in {
 		out[k] = append([]string(nil), v...)
+	}
+	return out
+}
+
+func mergeGroups(base, overlay map[string][]string) map[string][]string {
+	if len(overlay) == 0 {
+		return base
+	}
+	out := cloneGroups(base)
+	if out == nil {
+		out = make(map[string][]string, len(overlay))
+	}
+	for name, members := range overlay {
+		seen := make(map[string]struct{}, len(out[name])+len(members))
+		merged := append([]string(nil), out[name]...)
+		for _, m := range merged {
+			seen[m] = struct{}{}
+		}
+		for _, m := range members {
+			if _, ok := seen[m]; ok {
+				continue
+			}
+			seen[m] = struct{}{}
+			merged = append(merged, m)
+		}
+		out[name] = merged
 	}
 	return out
 }

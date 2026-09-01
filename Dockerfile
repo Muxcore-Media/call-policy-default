@@ -12,5 +12,5 @@ USER policy
 WORKDIR /app
 COPY --from=builder /call-policy-default .
 COPY call-policy-default/policies.yaml .
-EXPOSE 9300
+EXPOSE 9101
 ENTRYPOINT ["./call-policy-default"]

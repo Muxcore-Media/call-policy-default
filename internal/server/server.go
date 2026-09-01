@@ -45,6 +45,16 @@ func (s *PolicyServer) Metrics() string {
 	return b.String()
 }
 
+// AllowedCount returns the number of allowed AllowCall decisions.
+func (s *PolicyServer) AllowedCount() int64 {
+	return s.allowed.Load()
+}
+
+// DeniedCount returns the number of denied AllowCall decisions.
+func (s *PolicyServer) DeniedCount() int64 {
+	return s.denied.Load()
+}
+
 func (s *PolicyServer) AllowCall(ctx context.Context, req *policyv1.AllowCallRequest) (*policyv1.AllowCallResponse, error) {
 	caller := req.GetCallerModuleId()
 	target := req.GetTargetModuleId()

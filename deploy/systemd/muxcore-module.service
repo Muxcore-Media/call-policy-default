@@ -7,6 +7,8 @@ Wants=network-online.target
 Type=simple
 User=muxcore
 Group=muxcore
+WorkingDirectory=/var/lib/call-policy-default
+Environment=CALL_POLICY_FILE=/var/lib/call-policy-default/policies.yaml
 ExecStart=/usr/local/bin/call-policy-default \
   --muxcore-mesh-addr localhost:9090 \
   --muxcore-module-id call-policy-default

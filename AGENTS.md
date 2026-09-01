@@ -7,8 +7,8 @@ MuxCore sidecar module (`call-policy-default`). Workspace deploy and SSH: [`../A
 | Field | Value |
 |-------|-------|
 | Directory | `call-policy-default` |
-| Capabilities | see muxcore.json |
-| Contracts | none declared |
+| Capabilities | `call.policy`, `settings` |
+| Contracts | `core/pkg/contracts` — `CallPolicyProvider` v0.4.0 |
 
 ## Agent rules
 

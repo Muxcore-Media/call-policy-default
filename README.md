@@ -39,14 +39,14 @@ call is denied. Wildcard `"*"` matches any caller, target, or method.
 
 ```yaml
 # Allow module to call any method on any target
-- caller: "downloader-qbittorrent"
-  target: "*"
-  methods: ["*"]
+- caller: "downloader-native-torrent"
+  target: "storage"
+  methods: ["read", "write"]
 
 # Allow specific call patterns
 - caller: "media-movies"
-  target: "transcoder-ffmpeg"
-  methods: ["Transcode", "Status"]
+  target: "media-tvshows"
+  methods: ["Search", "Lookup"]
 
 # Development mode: allow all (uncomment only for local use)
 # - caller: "*"
@@ -62,7 +62,9 @@ maintain an explicit `policies.yaml` (the repo includes a starter file).
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `CALL_POLICY_FILE` | `policies.yaml` | Path to policy YAML file |
+| `CALL_POLICY_DEV_FILE` | unset | Dev overlay YAML appended to `CALL_POLICY_FILE` (e.g. `_public` storage rules) |
 | `CALL_POLICY_GRPC_ADDR` | `:9101` | Listen address for this module's gRPC server |
+| `CALL_POLICY_EVENT_SUBSCRIBE_DELAY` | `5s` | Delay before first subscribe to `call.policy.grant` / `revoke` (also used as retry backoff) |
 | `MUXCORE_INSECURE_DISABLE_TLS` | unset | Set to `true` for insecure mesh registration (dev) |
 
 Mesh registration also uses the module SDK (`MUXCORE_GRPC_ADDR`,
@@ -75,7 +77,7 @@ Mesh registration also uses the module SDK (`MUXCORE_GRPC_ADDR`,
 groups:
   media-managers:
     - media-movies
-    - media-tv
+    - media-tvshows
 rules:
   - caller_group: media-managers
     target: "transcoder-ffmpeg"
@@ -90,7 +92,7 @@ Legacy files that are a bare YAML list of rules still work.
 
 ### Dynamic grants (v0.3+)
 
-Modules can request temporary access at runtime by publishing mesh events:
+Modules can request temporary access at runtime by publishing mesh events. Only modules listed under `grantors` in YAML (or the `grantors` setting) may publish these events; `Event.Source` is checked.
 
 | Event | Payload |
 |-------|---------|
@@ -101,7 +103,18 @@ Grants are evaluated after static YAML rules. They survive SIGHUP reloads and ex
 
 ### Hot-Reload
 
-SIGHUP reloads the policy file without restarting the module (dynamic grants are kept).
+SIGHUP reloads the policy file without restarting the module (dynamic grants are kept). Admin settings: update `policy_file` / `policy_dev_file`, or set `policy_reload` to `true` to reload current paths.
+
+### Settings (admin-ui)
+
+| Key | Description |
+|-----|-------------|
+| `policy_file` | Static YAML path (`CALL_POLICY_FILE`) |
+| `policy_dev_file` | Dev overlay path (`CALL_POLICY_DEV_FILE`) |
+| `grantors` | Comma-separated module IDs allowed to publish dynamic grant/revoke events |
+| `policy_reload` | Set `true` to reload from disk without changing paths |
+| `dynamic_grants` | Active runtime grant count (read-only) |
+| `calls_allowed` / `calls_denied` | AllowCall counters (read-only) |
 
 ## Implementation
 

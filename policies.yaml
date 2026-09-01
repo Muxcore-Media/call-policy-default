@@ -1,53 +1,91 @@
 # Production call policy — no _public storage access.
-# Dev overlay: policies-dev.yaml (selected by MUXCORE_PROFILE=dev in run-host.sh).
+# Dev overlay: policies-dev.yaml (CALL_POLICY_DEV_FILE / MUXCORE_PROFILE=dev).
 
-# Allow downloader to read/write storage
-- caller: "downloader-qbittorrent"
-  target: "storage-local"
-  methods: ["Put", "Get", "Stat", "Delete"]
+grantors:
+  - admin-ui
+  - core
 
-# Native torrent client streams pieces via StorageService
-- caller: "downloader-native-torrent"
-  target: "storage"
-  methods: ["read", "write"]
+rules:
+  # Native torrent client streams pieces via StorageService
+  - caller: "downloader-native-torrent"
+    target: "storage"
+    methods: ["read", "write"]
 
-# Indexers may cache .torrent / magnet metadata in storage
-- caller: "indexer-torznab"
-  target: "storage"
-  methods: ["read", "write"]
-- caller: "indexer-piratebay"
-  target: "storage"
-  methods: ["read", "write"]
-- caller: "indexer-mux"
-  target: "storage"
-  methods: ["read", "write"]
+  # Indexers may cache .torrent / magnet metadata in storage
+  - caller: "indexer-torznab"
+    target: "storage"
+    methods: ["read", "write"]
+  - caller: "indexer-piratebay"
+    target: "storage"
+    methods: ["read", "write"]
+  - caller: "indexer-mux"
+    target: "storage"
+    methods: ["read", "write"]
 
-# Allow scanner to read (ImportPath storage://) and write library objects
-- caller: "media-scanner"
-  target: "storage"
-  methods: ["read", "write"]
+  # Scanner reads ImportPath storage:// URIs and writes library objects
+  - caller: "media-scanner"
+    target: "storage"
+    methods: ["read", "write"]
 
-# Allow transcoder to read and stream from storage
-- caller: "transcoder-ffmpeg"
-  target: "storage-local"
-  methods: ["Get", "Stream", "Stat"]
+  # Media managers cross-query
+  - caller: "media-movies"
+    target: "media-tvshows"
+    methods: ["Search", "Lookup"]
 
-# Allow media managers to query each other
-- caller: "media-movies"
-  target: "media-tv"
-  methods: ["Search", "Lookup"]
+  # Jellyfin bridges stream from mesh storage
+  - caller: "media-jellyfin"
+    target: "storage"
+    methods: ["read", "write"]
+  - caller: "jellyfin"
+    target: "storage"
+    methods: ["read", "write"]
 
-# Allow media-jellyfin to stream from storage
-- caller: "media-jellyfin"
-  target: "storage"
-  methods: ["read", "write"]
+  # media-automation orchestration (mesh fallback / future paths)
+  - caller: "media-automation"
+    target: "media-scanner"
+    methods: ["ImportPath"]
+  - caller: "media-automation"
+    target: "media-movies"
+    methods: ["ListWanted", "SyncWanted"]
+  - caller: "media-automation"
+    target: "media-tvshows"
+    methods: ["ListWanted", "SyncWanted"]
+  - caller: "media-automation"
+    target: "downloader-native-torrent"
+    methods: ["AddTorrent", "GetStatus"]
+  - caller: "media-automation"
+    target: "indexer-torznab"
+    methods: ["Search"]
+  - caller: "media-automation"
+    target: "indexer-piratebay"
+    methods: ["Search"]
 
-# Allow any authenticated module to check auth status
-- caller: "*"
-  target: "auth-local"
-  methods: ["Validate"]
+  # request-media acquisition UI
+  - caller: "request-media"
+    target: "media-automation"
+    methods: ["AddToQueue", "GetQueue", "GetHistory"]
+  - caller: "request-media"
+    target: "media-movies"
+    methods: ["GetMovie", "AddMovie", "Lookup"]
+  - caller: "request-media"
+    target: "media-tvshows"
+    methods: ["GetSeries", "AddSeries", "Lookup"]
+  - caller: "request-media"
+    target: "metadata-tmdb"
+    methods: ["Search", "GetMovie", "GetTV"]
 
-# Catch-all deny (explicit; uncomment only in policies-dev.yaml)
-# - caller: "*"
-#   target: "*"
-#   methods: ["*"]
+  # admin-ui operator mesh fallback
+  - caller: "admin-ui"
+    target: "*"
+    methods: ["Settings", "UpdateSetting"]
+  - caller: "admin-ui"
+    target: "media-tagging"
+    methods: ["ListTags", "CreateTag", "ListRules", "UpsertRule", "DeleteRule"]
+  - caller: "admin-ui"
+    target: "media-music"
+    methods: ["ListArtists", "GetArtist"]
+
+  # Any authenticated module may validate sessions
+  - caller: "*"
+    target: "auth-local"
+    methods: ["Validate"]

@@ -3,3 +3,4 @@
 !internal/
 !go.mod
 !go.sum
+!policies.yaml
