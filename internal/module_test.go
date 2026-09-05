@@ -30,9 +30,26 @@ func TestModuleInfo(t *testing.T) {
 	if info.Version == "" {
 		t.Error("module version must not be empty")
 	}
+	if info.HTTPAddr != "127.0.0.1:9101" {
+		t.Errorf("HTTPAddr = %q, want 127.0.0.1:9101", info.HTTPAddr)
+	}
+}
+
+func TestResolveGRPCAddr_InsecureLoopback(t *testing.T) {
+	t.Setenv("MUXCORE_INSECURE_DISABLE_TLS", "true")
+	if got := resolveGRPCAddr(":9101"); got != "127.0.0.1:9101" {
+		t.Fatalf("got %q", got)
+	}
+	if got := resolveGRPCAddr("0.0.0.0:9101"); got != "127.0.0.1:9101" {
+		t.Fatalf("got %q", got)
+	}
+	if got := resolveGRPCAddr("192.168.1.1:9101"); got != "192.168.1.1:9101" {
+		t.Fatalf("got %q", got)
+	}
 }
 
 func TestModuleLifecycle(t *testing.T) {
+	t.Setenv("MUXCORE_INSECURE_DISABLE_TLS", "true")
 	m := NewModule(Config{FilePath: testPolicyFile(t), GRPCAddr: "127.0.0.1:0"})
 	ctx := context.Background()
 	if err := m.Init(ctx); err != nil {
@@ -47,6 +64,7 @@ func TestModuleLifecycle(t *testing.T) {
 }
 
 func TestModuleGRPCHealth(t *testing.T) {
+	t.Setenv("MUXCORE_INSECURE_DISABLE_TLS", "true")
 	m := NewModule(Config{FilePath: testPolicyFile(t), GRPCAddr: "127.0.0.1:0"})
 	ctx := context.Background()
 	if err := m.Init(ctx); err != nil {

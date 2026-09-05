@@ -62,8 +62,12 @@ maintain an explicit `policies.yaml` (the repo includes a starter file).
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `CALL_POLICY_FILE` | `policies.yaml` | Path to policy YAML file |
-| `CALL_POLICY_GRPC_ADDR` | `:9101` | Listen address for this module's gRPC server |
-| `MUXCORE_INSECURE_DISABLE_TLS` | unset | Set to `true` for insecure mesh registration (dev) |
+| `CALL_POLICY_GRPC_ADDR` | `127.0.0.1:9101` | Listen address for this module's gRPC server |
+| `MUXCORE_INSECURE_DISABLE_TLS` | unset | Set to `true` for plaintext gRPC (dev only; also rewrites `:port` binds to loopback) |
+| `MUXCORE_GRPC_INSECURE` | unset | Alias for `MUXCORE_INSECURE_DISABLE_TLS` |
+| `CALL_POLICY_TLS_CERT` / `CALL_POLICY_TLS_KEY` | auto-generated | Server TLS certificate and key (falls back to `MUXCORE_TLS_CERT` / `MUXCORE_TLS_KEY`) |
+| `CALL_POLICY_TLS_CA` | auto-generated | Client CA bundle for optional mTLS (falls back to `MUXCORE_TLS_CA`) |
+| `CALL_POLICY_TLS_DIR` | `~/.muxcore/tls/call-policy-default` | Directory for auto-generated dev certificates |
 
 Mesh registration also uses the module SDK (`MUXCORE_GRPC_ADDR`,
 `MUXCORE_MODULE_ID`, `--muxcore-mesh-addr`, `--muxcore-module-id`).

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.6] — 2026-09-05
+
+### Added
+
+- Inbound gRPC TLS by default (`grpc.Creds`); auto-generated mesh-local certs when none configured.
+- Default bind address `127.0.0.1:9101` (was `:9101`); `MUXCORE_INSECURE_DISABLE_TLS` / `MUXCORE_GRPC_INSECURE` retain plaintext dev escape hatch.
+
 ## [0.3.5] — 2026-08-20
 
 ### Fixed
