@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
+	manifest "github.com/Muxcore-Media/call-policy-default"
 	"github.com/Muxcore-Media/call-policy-default/internal/grpctls"
 	"github.com/Muxcore-Media/call-policy-default/internal/policy"
 	"github.com/Muxcore-Media/call-policy-default/internal/server"
@@ -69,7 +70,7 @@ func (m *Module) Info() contracts.ModuleInfo {
 	return contracts.ModuleInfo{
 		ID:           m.id,
 		Name:         "Call Policy Default",
-		Version:      "0.3.6",
+		Version:      modulesdk.ManifestVersion(manifest.ManifestJSON),
 		Roles:        []string{"security"},
 		Description:  "Default inter-module call access control with static YAML and dynamic event-bus grants",
 		Author:       "MuxCore",
